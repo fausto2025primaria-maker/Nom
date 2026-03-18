@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador de Setge</title>
+  <style>
+    :root{
+      --bg:#efe6d1;
+      --panel:#f8f1e4;
+      --ink:#2f2418;
+      --accent:#7a4e2b;
+      --att:#b23a2b;
+      --def:#245a8d;
+      --wall:#7e7e7e;
+      --gate:#6b4024;
+      --field:#d9c08c;
+      --courtyard:#ccb995;
+      --tower:#5f5f5f;
+      --select:#ffde59;
+      --danger:#c63333;
+      --ok:#2b7a2b;
+      --gold:#d9b35b;
+      --fire:#d06a28;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: Georgia, serif;
+      background:linear-gradient(180deg,#d8c4a2,#b99868);
+      color:var(--ink);
+    }
+    .wrap{
+      max-width:1400px;
+      margin:0 auto;
+      padding:16px;
+      display:grid;
+      grid-template-columns: 1.2fr 360px;
+      gap:16px;
+    }
+    .board-panel,.side-panel{
+      background:rgba(248,241,228,.96);
+      border:3px solid var(--accent);
+      border-radius:16px;
+      box-shadow:0 8px 20px rgba(0,0,0,.15);
+    }
+    .board-panel{padding:14px}
+    .title{
+      text-align:center;
+      font-size:30px;
+      margin:6px 0 14px;
+      color:#4d2d16;
+    }
+    .subbar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-bottom:14px;
+    }
+    .pill{
+      background:#f3e4c7;
+      border:2px solid var(--accent);
+      padding:8px 12px;
+      border-radius:999px;
+      font-weight:700;
+      font-size:14px;
+    }
+    .pill.att{color:var(--att)}
+    .pill.def{color:var(--def)}
+    #board{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap:2px;
+      background:#6a533d;
+      border:4px solid #6a533d;
+      border-radius:10px;
+      overflow:hidden;
+      user-select:none;
+      touch-action:manipulation;
+    }
+    .cell{
+      aspect-ratio:1/1;
+      min-height:56px;
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:32px;
+      cursor:pointer;
+      transition:transform .08s ease, outline-color .08s ease;
+    }
+    .cell:hover{transform:scale(1.02)}
+    .field{background:var(--field)}
+    .moat{background:#7db1c7}
+    .wall{background:var(--wall)}
+    .gate{background:var(--gate); color:#fff}
+    .courtyard{background:var(--courtyard)}
+    .tower{background:var(--tower)}
+    .selected{outline:4px solid var(--select); outline-offset:-4px; z-index:1}
+    .valid{box-shadow: inset 0 0 0 4px rgba(43,122,43,.65)}
+    .enemy{box-shadow: inset 0 0 0 4px rgba(198,51,51,.65)}
+    .cell .hp{
+      position:absolute;
+      right:3px;
+      bottom:2px;
+      font-size:12px;
+      font-weight:700;
+      background:rgba(255,255,255,.8);
+      padding:1px 4px;
+      border-radius:8px;
+    }
+    .cell .badge{
+      position:absolute;
+      left:3px;
+      top:2px;
+      font-size:10px;
+      font-weight:700;
+      background:rgba(255,255,255,.85);
+      padding:1px 4px;
+      border-radius:8px;
+    }
+    .legend{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:8px;
+      font-size:13px;
+    }
+    .legend div{
+      background:#f3e6cf;
+      border:1px solid #b8925f;
+      border-radius:10px;
+      padding:8px;
+      text-align:center;
+    }
+    .side-panel{padding:14px; display:flex; flex-direction:column; gap:12px}
+    .section{
+      background:#f3e7d1;
+      border:2px solid #b8925f;
+      border-radius:12px;
+      padding:10px;
+    }
+    h2,h3{margin:0 0 8px}
+    .unit-card{
+      font-size:14px;
+      line-height:1.35;
+    }
+    button{
+      width:100%;
+      border:none;
+      border-radius:10px;
+      padding:11px 12px;
+      margin-top:8px;
+      font-size:15px;
+      font-weight:700;
+      cursor:pointer;
+      background:#7a4e2b;
+      color:#fff;
+    }
+    button.secondary{background:#4f6b7d}
+    button.warn{background:#9b2d2d}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    #log{
+      max-height:230px;
+      overflow:auto;
+      background:#fff8ee;
+      border:1px solid #caa56e;
+      border-radius:10px;
+      padding:8px;
+      font-size:14px;
+      line-height:1.35;
+    }
+    .log-entry{margin-bottom:6px; padding-bottom:6px; border-bottom:1px dashed #d5b98a}
+    .tiny{font-size:12px; opacity:.8}
+    .status-win{color:var(--ok); font-weight:700}
+    .status-lose{color:var(--danger); font-weight:700}
+
+    .siege-visuals{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:10px;
+    }
+    .visual-card{
+      background:#fff8ee;
+      border:2px solid #caa56e;
+      border-radius:12px;
+      padding:8px;
+      text-align:center;
+    }
+    .visual-card img{
+      width:100%;
+      aspect-ratio:1/1;
+      object-fit:contain;
+      display:block;
+      margin:0 auto 6px;
+      image-rendering:auto;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,.15));
+    }
+    .visual-card strong{display:block; margin-bottom:2px}
+    .visual-card .tiny{display:block}
+    .shake{animation:shake .35s linear}
+    @keyframes shake{
+      0%{transform:translateX(0)}
+      20%{transform:translateX(-3px)}
+      40%{transform:translateX(3px)}
+      60%{transform:translateX(-2px)}
+      80%{transform:translateX(2px)}
+      100%{transform:translateX(0)}
+    }
+
+
+    .visual-wrap{position:relative}
+    .impact-burst{
+      position:absolute;
+      inset:auto 10px 12px auto;
+      background:rgba(126,20,20,.88);
+      color:#fff8e8;
+      border:2px solid #f0c28f;
+      border-radius:999px;
+      padding:4px 8px;
+      font-size:12px;
+      font-weight:700;
+      opacity:0;
+      transform:scale(.6) translateY(8px);
+      pointer-events:none;
+    }
+    .impact-burst.show{animation:burst .8s ease-out}
+    @keyframes burst{
+      0%{opacity:0; transform:scale(.55) translateY(12px)}
+      18%{opacity:1; transform:scale(1.08) translateY(0)}
+      75%{opacity:1; transform:scale(1) translateY(-6px)}
+      100%{opacity:0; transform:scale(.95) translateY(-14px)}
+    }
+    .alert{
+      padding:10px 12px;
+      border-radius:10px;
+      font-weight:700;
+      border:2px solid #b8925f;
+      background:#fff3d8;
+    }
+    .alert.danger{
+      background:#ffe0d6;
+      border-color:#c26a53;
+      color:#7a241a;
+    }
+    .alert.warn{
+      background:#fff0c8;
+      border-color:#c29b43;
+      color:#674d08;
+    }
+    .board-fire{
+      position:absolute;
+      bottom:4px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:18px;
+      filter:drop-shadow(0 0 3px rgba(255,120,0,.5));
+      pointer-events:none;
+    }
+    .board-breach{
+      position:absolute;
+      top:4px;
+      right:4px;
+      font-size:15px;
+      pointer-events:none;
+    }
+
+    @media (max-width: 1100px){
+      .wrap{grid-template-columns:1fr}
+      .cell{min-height:44px;font-size:26px}
+      .legend{grid-template-columns: repeat(2, minmax(0,1fr));}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="board-panel">
+      <div class="title">Simulador de Setge <span class="tiny">v1.6</span></div>
+      <div class="subbar">
+        <div class="pill">Torn: <span id="turnNum">1</span>/12</div>
+        <div class="pill" id="currentSide">Bàndol actual: Atacants</div>
+        <div class="pill att">Porta: <span id="gateHp">12</span> PV</div>
+        <div class="pill def">Mur esquerre: <span id="wallLHp">8</span> PV · Mur dret: <span id="wallRHp">8</span> PV</div>
+      </div>
+      <div id="board"></div>
+      <div class="legend">
+        <div>🟥 Atacants</div>
+        <div>🟦 Defensors</div>
+        <div>🟫 Porta / Mur</div>
+        <div>🟩 Casella vàlida</div>
+        <div>⚔️ Combat cos a cos</div>
+        <div>🏹 Tir a distància</div>
+        <div>🐏 Ariet especial</div>
+        <div>⏳ Els defensors guanyen si aguanten 12 torns</div>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <div class="section">
+        <h2>Ordres</h2>
+        <div id="statusText">Selecciona una unitat del bàndol actual.</div>
+        <button id="endTurnBtn">Acabar torn</button>
+        <button id="resetBtn" class="secondary">Reiniciar partida</button>
+      </div>
+
+      <div class="section">
+        <h3>Unitat seleccionada</h3>
+        <div id="unitInfo" class="unit-card">Cap unitat seleccionada.</div>
+      </div>
+
+      <div class="section">
+        <h3>Com jugar</h3>
+        <div class="unit-card">
+          1. Toca una unitat del teu bàndol.<br>
+          2. Toca una casella verda per moure-la.<br>
+          3. Toca un enemic ressaltat en roig per atacar-lo.<br>
+          4. Els arquers poden disparar a 3 caselles.<br>
+          5. L’ariet pot colpejar la porta o el mur adjacent.<br>
+          <span class="tiny">Cada unitat pot actuar una vegada per torn. Esta versió porta les imatges incrustades dins de l’HTML.</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Estat del setge</h3>
+        <div class="siege-visuals">
+          <div class="visual-card">
+            <div class="visual-wrap"><img id="wallLImg" alt="Mur esquerre"><div id="wallLBurst" class="impact-burst">Impacte!</div></div>
+            <strong>Mur esquerre</strong>
+            <span class="tiny" id="wallLState">Intacte</span>
+          </div>
+          <div class="visual-card">
+            <div class="visual-wrap"><img id="gateImg" alt="Porta principal"><div id="gateBurst" class="impact-burst">Colp!</div></div>
+            <strong>Porta</strong>
+            <span class="tiny" id="gateState">Intacta</span>
+          </div>
+          <div class="visual-card">
+            <div class="visual-wrap"><img id="wallRImg" alt="Mur dret"><div id="wallRBurst" class="impact-burst">Impacte!</div></div>
+            <strong>Mur dret</strong>
+            <span class="tiny" id="wallRState">Intacte</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Alerta del setge</h3>
+        <div id="siegeAlert" class="alert">Les muralles encara aguanten.</div>
+      </div>
+
+      <div class="section">
+        <h3>Registre</h3>
+        <div id="log"></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const W = 12, H = 8, MAX_TURNS = 12;
+
+    const TERRAIN = {
+      FIELD: 'field', MOAT: 'moat', WALL: 'wall', GATE: 'gate', COURTYARD: 'courtyard', TOWER: 'tower'
+    };
+
+    const unitDefs = {
+      infantry: {name:'Infanteria', icon:'⚔️', hp:4, atk:2, range:1, move:2, desc:'Unitat bàsica de combat.'},
+      archer: {name:'Arquer', icon:'🏹', hp:3, atk:2, range:3, move:2, desc:'Pot atacar a distància fins a 3 caselles.'},
+      ram: {name:'Ariet', icon:'🐏', hp:6, atk:3, range:1, move:1, desc:'Especialista en destruir porta i murs.'},
+      guard: {name:'Guàrdia', icon:'🛡️', hp:5, atk:2, range:1, move:2, desc:'Defensa forta cos a cos.'},
+      reserve: {name:'Reserva', icon:'🔱', hp:4, atk:2, range:1, move:2, desc:'Reforç interior del castell.'}
+    };
+
+    let game;
+
+    let prevGateHp = null, prevWallLHp = null, prevWallRHp = null;
+
+    function svgToDataUri(svg){
+      return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    }
+
+    function gateDamageLevel(hp){
+      if (hp >= 10) return 0;
+      if (hp >= 7) return 1;
+      if (hp >= 4) return 2;
+      return 3;
+    }
+
+    function wallDamageLevel(hp){
+      if (hp >= 7) return 0;
+      if (hp >= 5) return 1;
+      if (hp >= 2) return 2;
+      return 3;
+    }
+
+    function gateStateText(hp){
+      if (hp >= 10) return 'Intacta';
+      if (hp >= 7) return 'Amb colps i esquerdes';
+      if (hp >= 4) return 'Molt danyada';
+      if (hp >= 1) return 'A punt de caure';
+      return 'Destruïda';
+    }
+
+    function wallStateText(hp){
+      if (hp >= 7) return 'Intacte';
+      if (hp >= 5) return 'Clivellat';
+      if (hp >= 2) return 'Quasi obert';
+      if (hp >= 1) return 'Inestable';
+      return 'Bretxa oberta';
+    }
+
+    function gateSvg(level){
+      const damage = [
+        '',
+        '<path d="M118 90 L135 118 M154 74 L168 103 M90 128 L107 152" stroke="#5b4432" stroke-width="5" fill="none" stroke-linecap="round"/>',
+        '<path d="M118 90 L137 121 L126 142 M154 74 L171 101 L159 124 M90 128 L108 155 L96 173 M139 48 L147 78" stroke="#4d3727" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M80 168 Q128 142 176 172" stroke="#3d2d22" stroke-width="7" fill="none"/>',
+        '<path d="M70 185 L98 126 L116 185 Z" fill="#26180f"/><path d="M186 185 L154 118 L138 185 Z" fill="#26180f"/><rect x="110" y="60" width="36" height="54" fill="#26180f"/><path d="M56 198 L92 185 M173 185 L208 198 M108 191 L147 204" stroke="#8d6a4c" stroke-width="6" stroke-linecap="round"/>'
+      ][level];
+      const smoke = level >= 2 ? '<circle cx="188" cy="45" r="13" fill="#b6b0ac" opacity="0.55"/><circle cx="202" cy="32" r="10" fill="#d1cac5" opacity="0.45"/><circle cx="177" cy="30" r="8" fill="#cec6c0" opacity="0.32"/>' : '';
+      const glow = level === 3 ? '<ellipse cx="138" cy="188" rx="72" ry="16" fill="#b86a34" opacity="0.35"/><path d="M106 188 C114 164 125 176 128 156 C134 172 142 164 146 149 C152 170 165 173 171 188 Z" fill="#e28733" opacity="0.88"/><path d="M116 188 C121 172 126 177 129 165 C132 179 139 171 143 160 C149 178 156 177 160 188 Z" fill="#f5bf58" opacity="0.92"/>' : '';
+      return svgToDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 240">
+        <rect width="280" height="240" fill="#efe2c0"/>
+        <rect x="18" y="22" width="244" height="200" rx="16" fill="#c8b18c" stroke="#8a6b4e" stroke-width="6"/>
+        <rect x="34" y="38" width="56" height="170" rx="8" fill="#b7b7b7" stroke="#6a6a6a" stroke-width="5"/>
+        <rect x="190" y="38" width="56" height="170" rx="8" fill="#b7b7b7" stroke="#6a6a6a" stroke-width="5"/>
+        <rect x="78" y="24" width="124" height="34" rx="6" fill="#9a9a9a" stroke="#666" stroke-width="4"/>
+        <g fill="#8b6542" stroke="#5b412c" stroke-width="4">
+          <path d="M82 185 L82 83 Q140 16 198 83 L198 185 Z"/>
+          <line x1="140" y1="59" x2="140" y2="185"/>
+          <line x1="104" y1="78" x2="104" y2="185"/>
+          <line x1="122" y1="64" x2="122" y2="185"/>
+          <line x1="158" y1="64" x2="158" y2="185"/>
+          <line x1="176" y1="78" x2="176" y2="185"/>
+        </g>
+        <circle cx="128" cy="130" r="4" fill="#d9c08c"/>
+        <circle cx="152" cy="130" r="4" fill="#d9c08c"/>
+        ${glow}
+        ${damage}
+        ${smoke}
+      </svg>`);
+    }
+
+    function wallSvg(level, side){
+      const sx = side === 'left' ? -1 : 1;
+      const breach = [
+        '',
+        `<path d="M${140-22*sx} 104 L${126-20*sx} 128 L${142-12*sx} 147" stroke="#5a5a5a" stroke-width="6" fill="none" stroke-linecap="round"/>`,
+        `<path d="M${140-26*sx} 96 L${122-20*sx} 124 L${138-10*sx} 146 L${120-2*sx} 170" stroke="#4e4e4e" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M${104-12*sx} 180 L${122-6*sx} 164 L${146-10*sx} 173" fill="#8e8e8e"/>`,
+        `<path d="M${130-18*sx} 202 L${162-4*sx} 118 L${194-16*sx} 202 Z" fill="#efe2c0" stroke="#6d6d6d" stroke-width="4"/><path d="M${108-4*sx} 202 L${126+6*sx} 181 M${170-3*sx} 176 L${190+8*sx} 202 M${150-7*sx} 198 L${174+2*sx} 202" stroke="#888" stroke-width="6" stroke-linecap="round"/>`
+      ][level];
+      const dust = level >= 2 ? '<circle cx="218" cy="56" r="11" fill="#cbc6bf" opacity="0.5"/><circle cx="204" cy="44" r="8" fill="#ddd7d0" opacity="0.4"/><circle cx="228" cy="40" r="7" fill="#d6d0ca" opacity="0.28"/>' : '';
+      const embers = level === 3 ? '<path d="M128 205 C135 188 143 194 145 180 C149 193 155 189 160 176 C166 192 175 195 182 205 Z" fill="#dd7c29" opacity="0.88"/><path d="M140 205 C144 194 149 197 151 188 C154 198 160 193 163 184 C168 196 174 198 177 205 Z" fill="#f4bc53" opacity="0.95"/>' : '';
+      return svgToDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 240">
+        <rect width="280" height="240" fill="#efe2c0"/>
+        <rect x="24" y="30" width="232" height="172" rx="8" fill="#bdbdbd" stroke="#727272" stroke-width="6"/>
+        <g fill="#8f8f8f" stroke="#666" stroke-width="4">
+          <rect x="24" y="12" width="28" height="26"/>
+          <rect x="68" y="12" width="28" height="26"/>
+          <rect x="112" y="12" width="28" height="26"/>
+          <rect x="156" y="12" width="28" height="26"/>
+          <rect x="200" y="12" width="28" height="26"/>
+          <rect x="228" y="12" width="28" height="26"/>
+        </g>
+        <g stroke="#8a8a8a" stroke-width="2.5" opacity="0.7">
+          <line x1="56" y1="50" x2="56" y2="194"/>
+          <line x1="104" y1="50" x2="104" y2="194"/>
+          <line x1="152" y1="50" x2="152" y2="194"/>
+          <line x1="200" y1="50" x2="200" y2="194"/>
+          <line x1="28" y1="86" x2="252" y2="86"/>
+          <line x1="28" y1="122" x2="252" y2="122"/>
+          <line x1="28" y1="158" x2="252" y2="158"/>
+        </g>
+        ${breach}
+        ${dust}
+        ${embers}
+      </svg>`);
+    }
+
+    function animateImpact(id, burstId, text){
+      const el = document.getElementById(id);
+      if (el){
+        el.classList.remove('shake');
+        void el.offsetWidth;
+        el.classList.add('shake');
+      }
+      const burst = document.getElementById(burstId);
+      if (burst){
+        burst.textContent = text || 'Impacte!';
+        burst.classList.remove('show');
+        void burst.offsetWidth;
+        burst.classList.add('show');
+      }
+    }
+
+    function updateSiegeVisuals(){
+      document.getElementById('gateImg').src = gateSvg(gateDamageLevel(game.gateHp));
+      document.getElementById('wallLImg').src = wallSvg(wallDamageLevel(game.wallLHp), 'left');
+      document.getElementById('wallRImg').src = wallSvg(wallDamageLevel(game.wallRHp), 'right');
+      document.getElementById('gateState').textContent = gateStateText(game.gateHp);
+      document.getElementById('wallLState').textContent = wallStateText(game.wallLHp);
+      document.getElementById('wallRState').textContent = wallStateText(game.wallRHp);
+      if (prevGateHp !== null && game.gateHp < prevGateHp) animateImpact('gateImg','gateBurst',`-${prevGateHp-game.gateHp} PV`);
+      if (prevWallLHp !== null && game.wallLHp < prevWallLHp) animateImpact('wallLImg','wallLBurst',`-${prevWallLHp-game.wallLHp} PV`);
+      if (prevWallRHp !== null && game.wallRHp < prevWallRHp) animateImpact('wallRImg','wallRBurst',`-${prevWallRHp-game.wallRHp} PV`);
+      prevGateHp = game.gateHp;
+      prevWallLHp = game.wallLHp;
+      prevWallRHp = game.wallRHp;
+    }
+
+
+    function getSiegeAlert(){
+      if (game.gateHp <= 0) return {cls:'danger', text:'La porta ha caigut. El pati interior està exposat!'};
+      if (game.wallLHp <= 0 || game.wallRHp <= 0) return {cls:'danger', text:'S’ha obert una bretxa al mur. Els defensors han de reaccionar ja.'};
+      if (game.gateHp <= 3) return {cls:'warn', text:'La porta crema i està a punt de caure.'};
+      if (game.wallLHp <= 2 || game.wallRHp <= 2) return {cls:'warn', text:'Una secció del mur tremola. Una nova envestida pot obrir la bretxa.'};
+      return {cls:'', text:'Les muralles encara aguanten.'};
+    }
+
+    function makeBoardTerrain(){
+      const terrain = Array.from({length:H}, () => Array.from({length:W}, () => TERRAIN.FIELD));
+
+      for (let x=0;x<W;x++) terrain[2][x] = TERRAIN.WALL;
+      terrain[2][0] = TERRAIN.TOWER;
+      terrain[2][11] = TERRAIN.TOWER;
+      terrain[2][5] = TERRAIN.GATE;
+      terrain[2][6] = TERRAIN.GATE;
+
+      for (let y=3;y<H;y++){
+        for (let x=0;x<W;x++) terrain[y][x] = TERRAIN.COURTYARD;
+      }
+      return terrain;
+    }
+
+    function setupGame(){
+      const units = [];
+      let id = 1;
+      function add(side, type, x, y){
+        const d = unitDefs[type];
+        units.push({id:id++, side, type, x, y, hp:d.hp, acted:false});
+      }
+
+      // Atacants
+      add('attackers','infantry',2,7);
+      add('attackers','infantry',4,7);
+      add('attackers','infantry',7,7);
+      add('attackers','archer',1,6);
+      add('attackers','archer',9,6);
+      add('attackers','ram',5,7);
+
+      // Defensors
+      add('defenders','guard',4,1);
+      add('defenders','guard',7,1);
+      add('defenders','archer',0,2);
+      add('defenders','archer',11,2);
+      add('defenders','reserve',5,4);
+      add('defenders','reserve',6,4);
+
+      game = {
+        terrain: makeBoardTerrain(),
+        units,
+        turn: 1,
+        side: 'attackers',
+        selectedId: null,
+        gateHp: 12,
+        wallLHp: 8,
+        wallRHp: 8,
+        winner: null,
+        log: []
+      };
+      logMsg('La batalla comença. Els atacants avancen cap al castell.');
+      render();
+    }
+
+    function inBounds(x,y){ return x>=0 && y>=0 && x<W && y<H; }
+    function getUnitAt(x,y){ return game.units.find(u => u.x===x && u.y===y); }
+    function getSelected(){ return game.units.find(u => u.id===game.selectedId); }
+    function isEnemy(a,b){ return a && b && a.side !== b.side; }
+    function manhattan(a,b){ return Math.abs(a.x-b.x)+Math.abs(a.y-b.y); }
+
+    function terrainAt(x,y){ return game.terrain[y][x]; }
+    function passableFor(unit,x,y){
+      const t = terrainAt(x,y);
+      if (t === TERRAIN.WALL || t === TERRAIN.TOWER || t === TERRAIN.GATE) return false;
+      return !getUnitAt(x,y);
+    }
+
+    function getValidMoves(unit){
+      const out = [];
+      for (let y=0;y<H;y++){
+        for (let x=0;x<W;x++){
+          if (passableFor(unit,x,y) && (Math.abs(unit.x-x)+Math.abs(unit.y-y) <= unitDefs[unit.type].move)) out.push(`${x},${y}`);
+        }
+      }
+      return new Set(out);
+    }
+
+    function getValidAttacks(unit){
+      const d = unitDefs[unit.type];
+      const out = new Set();
+      // enemy units
+      for (const other of game.units){
+        if (isEnemy(unit, other) && manhattan(unit, other) <= d.range) out.add(`${other.x},${other.y}`);
+      }
+      // siege targets for ram and archers
+      if (unit.type === 'ram'){
+        const adj = [[0,-1],[0,1],[-1,0],[1,0]];
+        for (const [dx,dy] of adj){
+          const x = unit.x+dx, y = unit.y+dy;
+          if (!inBounds(x,y)) continue;
+          const t = terrainAt(x,y);
+          if (t === TERRAIN.GATE || t === TERRAIN.WALL) out.add(`${x},${y}`);
+        }
+      }
+      if (unit.type === 'archer'){
+        for (let y=0;y<H;y++){
+          for (let x=0;x<W;x++){
+            const t = terrainAt(x,y);
+            if ((t === TERRAIN.GATE || t === TERRAIN.WALL) && Math.abs(unit.x-x)+Math.abs(unit.y-y) <= d.range) out.add(`${x},${y}`);
+          }
+        }
+      }
+      return out;
+    }
+
+    function logMsg(msg){
+      game?.log?.unshift(msg);
+      if (game?.log?.length > 40) game.log.length = 40;
+    }
+
+    function d6(){ return Math.floor(Math.random()*6)+1; }
+
+    function attackUnit(attacker, defender){
+      const roll = d6();
+      const dmg = Math.max(1, unitDefs[attacker.type].atk + (roll >= 5 ? 1 : 0) - (defender.type === 'guard' ? 1 : 0));
+      defender.hp -= dmg;
+      attacker.acted = true;
+      logMsg(`${label(attacker)} ataca ${label(defender)}. Tirada ${roll}. Dany ${dmg}.`);
+      if (defender.hp <= 0){
+        game.units = game.units.filter(u => u.id !== defender.id);
+        logMsg(`${label(defender)} cau en combat.`);
+      }
+    }
+
+    function attackStructure(attacker, x, y){
+      const t = terrainAt(x,y);
+      const roll = d6();
+      let dmg = 0;
+      if (attacker.type === 'ram') dmg = roll >= 4 ? 3 : 2;
+      else if (attacker.type === 'archer') dmg = roll === 6 ? 1 : 0;
+      else dmg = roll >= 5 ? 1 : 0;
+      attacker.acted = true;
+
+      if (t === TERRAIN.GATE){
+        game.gateHp -= dmg;
+        logMsg(`${label(attacker)} colpeja la porta. Tirada ${roll}. Dany ${dmg}.`);
+        if (game.gateHp <= 0){
+          game.terrain[2][5] = TERRAIN.FIELD;
+          game.terrain[2][6] = TERRAIN.FIELD;
+          game.gateHp = 0;
+          logMsg('La porta ha caigut! El castell queda obert.');
+        }
+      } else if (t === TERRAIN.WALL){
+        if (x < 5){
+          game.wallLHp -= dmg;
+          logMsg(`${label(attacker)} danya el mur esquerre. Tirada ${roll}. Dany ${dmg}.`);
+          if (game.wallLHp <= 0){
+            game.wallLHp = 0;
+            game.terrain[2][3] = TERRAIN.FIELD;
+            logMsg('Una bretxa s’obri al mur esquerre.');
+          }
+        } else {
+          game.wallRHp -= dmg;
+          logMsg(`${label(attacker)} danya el mur dret. Tirada ${roll}. Dany ${dmg}.`);
+          if (game.wallRHp <= 0){
+            game.wallRHp = 0;
+            game.terrain[2][8] = TERRAIN.FIELD;
+            logMsg('Una bretxa s’obri al mur dret.');
+          }
+        }
+      }
+    }
+
+    function label(u){
+      return `${unitDefs[u.type].name} ${u.side === 'attackers' ? 'atacant' : 'defensor'}`;
+    }
+
+    function handleCellClick(x,y){
+      if (game.winner) return;
+      const clickedUnit = getUnitAt(x,y);
+      const selected = getSelected();
+
+      if (clickedUnit && clickedUnit.side === game.side){
+        if (clickedUnit.acted){
+          setStatus('Aquesta unitat ja ha actuat en este torn.');
+        } else {
+          game.selectedId = clickedUnit.id;
+          setStatus(`${label(clickedUnit)} seleccionat/da.`);
+        }
+        render();
+        return;
+      }
+
+      if (!selected){
+        setStatus('Selecciona primer una unitat del teu bàndol.');
+        return;
+      }
+      if (selected.acted){
+        setStatus('La unitat seleccionada ja ha actuat.');
+        return;
+      }
+
+      const validMoves = getValidMoves(selected);
+      const validAttacks = getValidAttacks(selected);
+      const key = `${x},${y}`;
+
+      if (clickedUnit && isEnemy(selected, clickedUnit) && validAttacks.has(key)){
+        attackUnit(selected, clickedUnit);
+        game.selectedId = null;
+      } else if (!clickedUnit && validMoves.has(key)){
+        selected.x = x; selected.y = y; selected.acted = true;
+        logMsg(`${label(selected)} es mou a (${x+1}, ${y+1}).`);
+        game.selectedId = null;
+      } else if (!clickedUnit && validAttacks.has(key)){
+        attackStructure(selected, x, y);
+        game.selectedId = null;
+      } else {
+        setStatus('Acció no vàlida. Mou a una casella verda o ataca un objectiu ressaltat.');
+      }
+
+      checkVictory();
+      render();
+    }
+
+    function checkVictory(){
+      if (game.winner) return;
+      const attackers = game.units.filter(u=>u.side==='attackers');
+      const defenders = game.units.filter(u=>u.side==='defenders');
+
+      if (!attackers.length){ game.winner = 'defenders'; logMsg('Els atacants han sigut derrotats.'); return; }
+      if (!defenders.length){ game.winner = 'attackers'; logMsg('Els defensors han caigut.'); return; }
+      if (attackers.some(u => terrainAt(u.x,u.y) === TERRAIN.COURTYARD)){
+        game.winner = 'attackers';
+        logMsg('Els atacants han entrat al pati interior.');
+        return;
+      }
+      if (game.turn > MAX_TURNS){
+        game.winner = 'defenders';
+        logMsg('Els defensors han resistit fins al final del setge.');
+      }
+    }
+
+    function setStatus(text){
+      document.getElementById('statusText').textContent = text;
+    }
+
+    function nextTurn(){
+      if (game.winner) return;
+      game.selectedId = null;
+      if (game.side === 'attackers'){
+        game.side = 'defenders';
+      } else {
+        game.side = 'attackers';
+        game.turn += 1;
+      }
+      game.units.forEach(u => { if (u.side === game.side) u.acted = false; });
+      setStatus(`Ara juguen els ${game.side === 'attackers' ? 'atacants' : 'defensors'}.`);
+      checkVictory();
+      render();
+    }
+
+    function render(){
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      const selected = getSelected();
+      const validMoves = selected ? getValidMoves(selected) : new Set();
+      const validAttacks = selected ? getValidAttacks(selected) : new Set();
+
+      for (let y=0;y<H;y++){
+        for (let x=0;x<W;x++){
+          const cell = document.createElement('div');
+          const t = terrainAt(x,y);
+          cell.className = `cell ${t}`;
+          const unit = getUnitAt(x,y);
+          const key = `${x},${y}`;
+          if (selected && selected.x===x && selected.y===y) cell.classList.add('selected');
+          if (!unit && validMoves.has(key)) cell.classList.add('valid');
+          if (validAttacks.has(key) && ((!unit) || isEnemy(selected, unit))) cell.classList.add('enemy');
+
+          if (t === TERRAIN.GATE && !unit) cell.textContent = game.gateHp <= 3 ? '🔥' : '🚪';
+          else if (t === TERRAIN.TOWER && !unit) cell.textContent = '🗼';
+          else if (t === TERRAIN.WALL && !unit){
+            const weakened = (x < 5 && game.wallLHp <= 2) || (x > 6 && game.wallRHp <= 2);
+            cell.textContent = weakened ? '💥' : '🧱';
+          }
+
+          if (unit){
+            cell.textContent = unitDefs[unit.type].icon;
+            const hp = document.createElement('div');
+            hp.className = 'hp';
+            hp.textContent = unit.hp;
+            cell.appendChild(hp);
+            const badge = document.createElement('div');
+            badge.className = 'badge';
+            badge.textContent = unit.side === 'attackers' ? 'A' : 'D';
+            cell.appendChild(badge);
+            cell.style.background = unit.side === 'attackers' ? '#d79a8d' : '#9ec0dd';
+            if (unit.acted) cell.style.opacity = '.65';
+          }
+
+          if (!unit && t === TERRAIN.GATE && game.gateHp > 0 && game.gateHp <= 3){
+            const fire = document.createElement('div');
+            fire.className = 'board-fire';
+            fire.textContent = '🔥';
+            cell.appendChild(fire);
+          }
+          if (!unit && t === TERRAIN.WALL){
+            const brokenLeft = x===3 && game.wallLHp<=0;
+            const brokenRight = x===8 && game.wallRHp<=0;
+            if (brokenLeft || brokenRight){
+              const breach = document.createElement('div');
+              breach.className = 'board-breach';
+              breach.textContent = '🕳️';
+              cell.appendChild(breach);
+            }
+          }
+
+          cell.addEventListener('click', () => handleCellClick(x,y));
+          board.appendChild(cell);
+        }
+      }
+
+      document.getElementById('turnNum').textContent = Math.min(game.turn, MAX_TURNS);
+      document.getElementById('currentSide').textContent = `Bàndol actual: ${game.side === 'attackers' ? 'Atacants' : 'Defensors'}`;
+      document.getElementById('gateHp').textContent = game.gateHp;
+      document.getElementById('wallLHp').textContent = game.wallLHp;
+      document.getElementById('wallRHp').textContent = game.wallRHp;
+      document.getElementById('unitInfo').innerHTML = selected ? unitCard(selected) : 'Cap unitat seleccionada.';
+      document.getElementById('endTurnBtn').disabled = !!game.winner;
+      updateSiegeVisuals();
+      const alert = getSiegeAlert();
+      const alertEl = document.getElementById('siegeAlert');
+      alertEl.className = `alert ${alert.cls}`.trim();
+      alertEl.textContent = alert.text;
+      renderLog();
+
+      if (game.winner){
+        const text = game.winner === 'attackers'
+          ? 'Victòria dels atacants.'
+          : 'Victòria dels defensors.';
+        document.getElementById('statusText').innerHTML = `<span class="${game.winner === 'attackers' ? 'status-lose' : 'status-win'}">${text}</span>`;
+      }
+    }
+
+    function unitCard(u){
+      const d = unitDefs[u.type];
+      return `
+        <strong>${d.icon} ${d.name}</strong><br>
+        Bàndol: ${u.side === 'attackers' ? 'Atacants' : 'Defensors'}<br>
+        Vida: ${u.hp}<br>
+        Moviment: ${d.move}<br>
+        Atac: ${d.atk}<br>
+        Abast: ${d.range}<br>
+        Estat: ${u.acted ? 'Ja ha actuat' : 'Disponible'}<br>
+        <span class="tiny">${d.desc}</span>
+      `;
+    }
+
+    function renderLog(){
+      const log = document.getElementById('log');
+      log.innerHTML = game.log.map(entry => `<div class="log-entry">${entry}</div>`).join('');
+    }
+
+    document.getElementById('endTurnBtn').addEventListener('click', nextTurn);
+    document.getElementById('resetBtn').addEventListener('click', setupGame);
+
+    setupGame();
+  </script>
+</body>
+</html>
